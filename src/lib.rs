@@ -1,3 +1,5 @@
+use std::borrow::BorrowMut;
+
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(module = "/utils/get-random.ts")]
@@ -100,7 +102,37 @@ impl Game {
         self.cells.clone()
     }
 
-    pub fn get_cell(&self, index: usize) -> Cell {
+    fn get_cell<'a>(&'a self, index: usize) -> &'a Cell {
+        assert!(
+            self.cells.len() >= index,
+            "chosen index should respect the boundaries of the game"
+        );
+
+        let cell: _ = self
+            .cells
+            .iter()
+            .find(|item| item.index.eq(&index))
+            .expect("this should not throw");
+
+        cell
+    }
+
+    fn get_cell_as_mut<'a>(&'a mut self, index: usize) -> &'a mut Cell {
+        assert!(
+            self.cells.len() >= index,
+            "chosen index should respect the boundaries of the game"
+        );
+
+        let cell: _ = self
+            .cells
+            .iter_mut()
+            .find(|item| item.index.eq(&index))
+            .expect("this should not throw");
+
+        cell
+    }
+
+    pub fn get_cell_as_ptr(&mut self, index: usize) -> *const Cell {
         assert!(
             self.cells.len() >= index,
             "chosen index should respect the boundaries of the game"
@@ -112,15 +144,13 @@ impl Game {
             .find(|&item| item.index.eq(&index))
             .expect("this should not throw");
 
-        *cell
+        cell as *const Cell
     }
 
     pub fn touch_cell(&mut self, index: usize) {
-        let cell = self.get_cell(index);
-        let mut status = match &cell.kind {
-            Kind::BOMB => Status::LOST,
-            _ => Status::PLAYING,
-        };
+        if self.status.is_some() && self.status.unwrap().eq(&Status::LOST) {
+            return
+        }
 
         let has_untouched_cells = self
             .cells
@@ -130,10 +160,17 @@ impl Game {
             .len()
             > 0;
 
+        let cell = self.get_cell_as_mut(index);
+        let mut status = match &cell.kind {
+            Kind::BOMB => Status::LOST,
+            _ => Status::PLAYING,
+        };
+
         if !has_untouched_cells {
             status = Status::WON;
         }
 
+        cell.dirty = true;
         self.status = Some(status);
     }
 

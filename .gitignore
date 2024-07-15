@@ -4,3 +4,7 @@ Cargo.lock
 bin/
 pkg/
 wasm-pack.log
+travis.yml
+.appveyor.yml
+www/node_modules
+www/bunb.lock
