@@ -7,19 +7,21 @@ const CELL_AMOUNT_ROW = Math.floor(WORLD_SIZE / CELL_SIZE)
 const FRAMES_PER_SECOND = 1000 / 4
 const DEFAULT_STATUS = "Click to play"
 
-const BOMB_SRC = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWJvbWIiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTMiIHI9IjkiLz48cGF0aCBkPSJNMTQuMzUgNC42NSAxNi4zIDIuN2EyLjQxIDIuNDEgMCAwIDEgMy40IDBsMS42IDEuNmEyLjQgMi40IDAgMCAxIDAgMy40bC0xLjk1IDEuOTUiLz48cGF0aCBkPSJtMjIgMi0xLjUgMS41Ii8+PC9zdmc+"
-const EMPTY_SRC = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXNxdWFyZSI+PHJlY3Qgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiB4PSIzIiB5PSIzIiByeD0iMiIvPjwvc3ZnPg=="
-const TILE_SRC = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWluc3BlY3Rpb24tcGFuZWwiPjxyZWN0IHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgeD0iMyIgeT0iMyIgcng9IjIiLz48cGF0aCBkPSJNNyA3aC4wMSIvPjxwYXRoIGQ9Ik0xNyA3aC4wMSIvPjxwYXRoIGQ9Ik03IDE3aC4wMSIvPjxwYXRoIGQ9Ik0xNyAxN2guMDEiLz48L3N2Zz4="
+const createGame = () => Game.new(CELL_AMOUNT_ROW * CELL_AMOUNT_ROW)
 
 const wasm = await init()
-const game = Game.new(CELL_AMOUNT_ROW * CELL_AMOUNT_ROW)
+let game = createGame()
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main class="container">
     <div id="header">
       <h1>Mine sweeper</h1>
-      <span id="status">${DEFAULT_STATUS}</span>
+      <div id="actions">
+        <span id="reset"></span>
+        <span id="status">${DEFAULT_STATUS}</span>
+      </div>
     </div>
+
     <canvas id="game"></canvas>
   </main>
 `
@@ -40,8 +42,6 @@ canvas.addEventListener('click', (props) => {
   const cellPointer = game.get_cell_as_ptr(cellIdx)
 
   const cell = getCellFromPointer(cellPointer)
-  const status = game.status ? Status[game.status] : 'not started'
-  console.log(status)
 
   if (!cell) return
 
@@ -64,28 +64,53 @@ const getCellFromPointer = (pointerIdx: number) => {
   }
 }
 
-const getGameStatusAsStr = () => {
+const getGameStatusAsStr = (): [string, boolean] => {
   const status = game.status ?? Number.MAX_SAFE_INTEGER
 
   switch (status) {
     case Status.WON:
-      return "You won";
+      return ["You won", true];
     case Status.LOST:
-      return "You lost";
+      return ["You lost", true];
     case Status.PAUSED:
-      return "The game was paused";
+      return ["The game was paused", false];
     case Status.PLAYING:
-      return "Currently playing";
+      return ["Currently playing", false];
     default:
-      return DEFAULT_STATUS;
+      return [DEFAULT_STATUS, false];
   }
 }
 
 const renderStatus = () => {
   const statusElement = document.getElementById('status');
-  if (!statusElement) return
+  const resetElement = document.getElementById('reset')
+  if (!statusElement || !resetElement) return
 
-  statusElement.innerText = getGameStatusAsStr()
+  const [status, resetable] = getGameStatusAsStr()
+
+  statusElement.innerText = status
+
+  if (resetable) {
+    clearInterval(interval)
+
+    resetElement.innerHTML = `
+      <button id="reset-btn">
+        RESET
+      </button>
+    `
+
+    const resetBtn = document.getElementById('reset-btn')
+    if (!resetBtn) return
+
+    resetBtn.onclick = () => {
+      game = createGame()
+      interval = createInterval()
+    }
+
+    return
+  }
+
+  resetElement.innerHTML = ''
 }
 
 const renderCells = () => {
@@ -102,45 +127,67 @@ const renderCells = () => {
       Math.floor((CELL_SIZE * position) / WORLD_SIZE) * CELL_SIZE
     ]
 
-    const getPattern = () => {
-      const hasBeenTouched = cell.dirty
-      const image = new Image()
-      image.src = TILE_SRC
+    ctx.fillStyle = '#27272a'
+    ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
 
-      if (!hasBeenTouched) return 'gray'
-      
+    ctx.fillStyle = '#121214'
+    ctx.fillRect(x + 5, y + 5, CELL_SIZE - 10, CELL_SIZE - 10)
+
+    const drawPattern = () => {
+      const hasBeenTouched = cell.dirty
+      ctx.fillStyle = '#3f3f46'
+
+      ctx.fillRect(
+        x + 10,
+        y + 10,
+        CELL_SIZE - 20,
+        CELL_SIZE - 20
+      )
+
       switch (cell.kind) {
         case Kind.BOMB: {
+          ctx.fillStyle = '#ef4444';
+
           if (hasBeenTouched) {
-            image.src = BOMB_SRC
+            ctx.fillRect(
+              x + 15,
+              y + 15,
+              CELL_SIZE - 30,
+              CELL_SIZE - 30
+            )
+
           }
 
-          const pattern = ctx.createPattern(image, null)
-          return "red";
-
+          break
         } case Kind.EMPTY: {
+          ctx.fillStyle = '#bae6fd';
+
           if (hasBeenTouched) {
-            image.src = EMPTY_SRC
+            ctx.fillRect(
+              x + 15,
+              y + 15,
+              CELL_SIZE - 30,
+              CELL_SIZE - 30,
+            )
           }
 
-          const pattern = ctx.createPattern(image, null)
-          return "blue";
+          break
         }
         default: {
-          const pattern = ctx.createPattern(image, null)
-          return "white"
+          break
         };
       }
     }
 
-    ctx.fillStyle = getPattern()!
-    ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
+    drawPattern()
   }
 
   ctx.stroke()
 }
 
-setInterval(() => {
+const createInterval = () => setInterval(() => {
   renderCells()
   renderStatus()
 }, FRAMES_PER_SECOND);
+
+let interval = createInterval() 

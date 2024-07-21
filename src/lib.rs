@@ -1,5 +1,3 @@
-use std::borrow::BorrowMut;
-
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(module = "/utils/get-random.ts")]
@@ -16,7 +14,7 @@ pub enum Status {
     LOST,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 #[wasm_bindgen]
 pub enum Kind {
     BOMB,
@@ -67,7 +65,7 @@ impl Cell {
         let mut cells: Vec<Self> = Vec::new();
 
         for idx in 0..quantity {
-            let rand = gen_random(1);
+            let rand = gen_random(4);
             let kind = if rand.eq(&1) { Some(Kind::BOMB) } else { None };
 
             let cell = Self::new(idx, kind);
@@ -155,10 +153,10 @@ impl Game {
         let has_untouched_cells = self
             .cells
             .iter()
-            .filter(|&item| !item.dirty)
+            .filter(|&item| !item.dirty && item.kind == Kind::EMPTY)
             .collect::<Vec<_>>()
             .len()
-            > 0;
+            > 1;
 
         let cell = self.get_cell_as_mut(index);
         let mut status = match &cell.kind {
